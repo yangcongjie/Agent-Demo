@@ -22,7 +22,7 @@ _DEFAULT_SYSTEM_PROMPT = """你是一个智能助手，可以通过调用工具�
 如果不需要或已获得足够信息，直接给出最终回答。"""
 
 
-class AgentRuntime():
+class AgentRuntime:
     """Agent 核心运行时"""
 
     def __init__(
@@ -48,14 +48,16 @@ class AgentRuntime():
         self.context_manager.add_user_message(user_input)
         logger.info(f"2.新增上下文: {self.context_manager.get_messages()}")
         self._trace = []
-        
+
         logger.info(f"3.开始核心循环")
         # 2. 核心循环
         for loop_idx in range(config.AGENT_MAX_LOOP):
             logger.info(f"3-1.第 {loop_idx + 1} 轮循环")
-            
+
             # 2.1 调用 LLM
-            logger.info(f"3-2.调用LLM\n上下文: {self.context_manager.get_messages()}\n工具: {self.tool_registry.get_all_schemas()}")
+            logger.info(
+                f"3-2.调用LLM\n上下文: {self.context_manager.get_messages()}\n工具: {self.tool_registry.get_all_schemas()}"
+            )
             try:
                 response = self.llm_client.chat(
                     messages=self.context_manager.get_messages(),
@@ -64,8 +66,6 @@ class AgentRuntime():
             except Exception as e:
                 logger.error(f"LLM 调用失败: {e}")
                 return f"抱歉，调用大模型时出错: {e}"
-
-            logger.info(f"3-3.LLM 原始响应: {response}")
 
             # 2.2 解析 LLM 输出
             parsed_list = self.parser.parse(response)
@@ -117,7 +117,6 @@ class AgentRuntime():
         """
         logger.info(f"处理工具调用: {po}")
 
-
         tool_name = po.tool_name
         tool_args = po.tool_args
         tool_call_id = po.tool_call_id
@@ -130,9 +129,17 @@ class AgentRuntime():
             "result": None,
             "error": None,
         }
+        logger.info(f"记录 trace: {trace_entry}")
+
+        # 判断是否已经调用过相同工具，避免重复调用
+        logger.info(f"当前已调用工具: {self._trace}")
+        if trace_entry in self._trace:
+            logger.warning(f"工具 '{tool_name}' 已调用过，跳过重复调用")
+            return
 
         # 执行工具
         try:
+
             result = self.tool_registry.execute(tool_name, **tool_args)
             trace_entry["result"] = str(result)
             logger.info(f"[工具调用] {tool_name}({tool_args}) → {result}")
@@ -142,6 +149,7 @@ class AgentRuntime():
                 tool_call_id=tool_call_id,
                 result=str(result),
             )
+
         except Exception as e:
             # 工具执行失败：错误信息也喂回 LLM，让它自行处理
             error_msg = f"工具 '{tool_name}' 执行失败: {e}"
@@ -164,4 +172,5 @@ class AgentRuntime():
     def _build_default_registry() -> ToolRegistry:
         """构建默认工具注册表"""
         from demo.tools.tool_registry import create_default_registry
+
         return create_default_registry()

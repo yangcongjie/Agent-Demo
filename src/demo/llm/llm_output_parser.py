@@ -26,6 +26,7 @@ class ParsedOutput(BaseModel):
     tool_args: Optional[dict] = {}  # 工具参数（action=tool_call）
     tool_call_id: str = ""  # 工具调用ID（用于上下文关联）
     final_answer: str = ""  # 最终答案（action=final_answer）
+    
 
     @property
     def is_tool_call(self) -> bool:

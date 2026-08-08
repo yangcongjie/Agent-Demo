@@ -276,7 +276,6 @@ def create_default_registry() -> ToolRegistry:
 
     return registry
 
-
 # ========== 自测入口 ==========
 if __name__ == "__main__":
     reg = create_default_registry()

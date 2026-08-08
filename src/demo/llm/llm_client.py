@@ -134,6 +134,7 @@ class LLMClient:
             raise LLMError("LLM 响应 JSON 解析失败", body=resp.text)
 
         logger.info(f"LLM 响应原始数据: {data}")
+        logger.info(f"LLM 的思考: {self._get_think(data)}")
 
         # 解析封装响应
         result = self._parse_chat_completion(data)
@@ -142,6 +143,17 @@ class LLMClient:
                      f"tool_calls={len(result.tool_calls) if result.tool_calls else 0}个, "
                      f"tokens={result.total_tokens}")
         return result
+
+    def _get_think(self, data: Dict[str, Any]) -> str:
+        """
+        从 LLM 响应中提取推理内容
+        """
+        choices = data.get("choices", [])
+        if choices:
+            first_choice = choices[0]
+            msg = first_choice.get("message", {})
+            think_content = msg.get("content", "")
+        return think_content
 
     def _parse_chat_completion(self, data: Dict[str, Any]) -> LLMResponse:
         """

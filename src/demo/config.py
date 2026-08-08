@@ -25,10 +25,10 @@ class Config(BaseSettings):
     LLM_TEMPERATURE: float = 0.1
 
     # ========== Agent Runtime 配置 ==========
-    AGENT_MAX_LOOP: int = 5  # Agent最大工具调用轮次，防止死循环
+    AGENT_MAX_LOOP: int = 10  # Agent最大工具调用轮次，防止死循环
 
     # ========== Context上下文管理配置 ==========
-    CONTEXT_MAX_KEEP_MESSAGES: int = 8  # 保留最近多少条完整消息，超过触发摘要压缩
+    CONTEXT_MAX_KEEP_MESSAGES: int = 15  # 保留最近多少条完整消息，超过触发摘要压缩
 
     # ========== 调试打印开关 ==========
     DEBUG_PRINT_LLM_RAW: bool = True  # 是否打印LLM原始输出
