@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 
 
-BASE_DIR = Path(__file__).parent.parent.parent  # src/demo → src → 项目根目录
+BASE_DIR = Path(__file__).parent.parent.parent  # src/demo
 
 class Config(BaseSettings):
     BASE_DIR: Path = BASE_DIR

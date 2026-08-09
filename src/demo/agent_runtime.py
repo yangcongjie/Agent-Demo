@@ -17,13 +17,13 @@ from demo.tools.tool_registry import ToolRegistry
 logger = logging.getLogger(__name__)  # "demo.agent_runtime"，继承 "demo" logger 配置
 
 # 默认系统提示词
-_DEFAULT_SYSTEM_PROMPT = """你是一个智能助手，可以通过调用工具来帮助用户完成任务。
+_DEFAULT_SYSTEM_PROMPT = """你是杨聪杰的智能助手，可以通过调用工具来帮助用户完成任务。
 请根据用户的问题，判断是否需要使用工具。如果需要，调用合适的工具；
 如果不需要或已获得足够信息，直接给出最终回答。"""
 
 
 class AgentRuntime:
-    """Agent 核心运行时"""
+    """Agent 主程序"""
 
     def __init__(
         self,
@@ -131,10 +131,22 @@ class AgentRuntime:
         }
         logger.info(f"记录 trace: {trace_entry}")
 
-        # 判断是否已经调用过相同工具，避免重复调用
-        logger.info(f"当前已调用工具: {self._trace}")
-        if trace_entry in self._trace:
-            logger.warning(f"工具 '{tool_name}' 已调用过，跳过重复调用")
+        # 判断是否已经调用过相同工具+相同参数，避免重复调用
+        already_called = any(
+            t.get("tool") == tool_name and t.get("args") == tool_args
+            for t in self._trace
+        )
+        if already_called:
+            logger.warning(f"工具 '{tool_name}' 已用相同参数 {tool_args} 调用过，跳过重复调用")
+            # 把之前的执行结果喂回 LLM，避免上下文断裂
+            prev = next(
+                t for t in self._trace
+                if t.get("tool") == tool_name and t.get("args") == tool_args
+            )
+            self.context_manager.add_tool_result(
+                tool_call_id=tool_call_id,
+                result=prev.get("result") or prev.get("error") or "[无结果]",
+            )
             return
 
         # 执行工具

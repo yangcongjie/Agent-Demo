@@ -9,9 +9,11 @@ import ast
 import operator
 import time
 from typing import Any, Optional
-
 from demo.tools.tool import Tool
+import demo.mcp.mcp_client as mcp_client
+import logging
 
+logger = logging.getLogger(__name__)  # "demo.agent_runtime"，继承 "demo" logger 配置
 
 # ========== 安全的数学表达式求值 ==========
 _SAFE_OPERATORS = {
@@ -204,6 +206,7 @@ def create_default_registry() -> ToolRegistry:
                 },
                 "required": ["expression"],
             },
+            executor_type="local",
             func=_tool_calculator,
         )
     )
@@ -223,28 +226,30 @@ def create_default_registry() -> ToolRegistry:
                 },
                 "required": ["query"],
             },
+            executor_type="local",
             func=_tool_search,
         )
     )
 
-    # 3. 天气
-    registry.register(
-        Tool(
-            name="weather",
-            description="查询指定城市的实时天气（模拟数据）。当用户询问天气时使用。",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "city": {
-                        "type": "string",
-                        "description": "城市名称，例如 '北京'",
-                    }
-                },
-                "required": ["city"],
-            },
-            func=_tool_weather,
-        )
-    )
+    # # 3. 天气
+    # registry.register(
+    #     Tool(
+    #         name="weather",
+    #         description="查询指定城市的实时天气（模拟数据）。当用户询问天气时使用。",
+    #         parameters={
+    #             "type": "object",
+    #             "properties": {
+    #                 "city": {
+    #                     "type": "string",
+    #                     "description": "城市名称，例如 '北京'",
+    #                 }
+    #             },
+    #             "required": ["city"],
+    #         },
+    #         executor_type="local",
+    #         func=_tool_weather,
+    #     )
+    # )
 
     # 4. 待办管理
     registry.register(
@@ -270,15 +275,51 @@ def create_default_registry() -> ToolRegistry:
                 },
                 "required": ["action"],
             },
+            executor_type="local",
             func=_tool_todo,
         )
     )
 
+    # mcp接口接入
+    registry_mcp_tools(registry)
     return registry
+
+
+def registry_mcp_tools(registry: ToolRegistry) -> ToolRegistry:
+    """返回所有 MCP 接口的工具"""
+    # 修复1：合法变量接收MCP工具数组
+    tool_list = mcp_client.get_mcp_tool_list()
+
+    # 加打印日志，方便排查有没有进到循环
+    logging.info(f"从MCP代理获取到工具总数：{len(tool_list)}")
+
+    # 遍历循环注册
+    for tool in tool_list:
+        # 安全取值，避免key不存在报错
+        tool_name = tool.get("name", "")
+        tool_desc = tool.get("description", "")
+        tool_params = tool.get("inputSchema", {})
+
+        if not tool_name:
+            continue
+
+        logging.info(f"正在注册MCP工具：{tool_name}")
+
+        registry.register(
+            Tool(
+                name=tool_name,
+                description=tool_desc,
+                parameters=tool_params,
+                executor_type="mcp",
+            )
+        )
+
+    return registry
+
 
 # ========== 自测入口 ==========
 if __name__ == "__main__":
     reg = create_default_registry()
     print("已注册工具:", reg.list_names())
     print(reg.execute("calculator", expression="(1+2)*3"))
-    print(reg.execute("weather", city="北京"))
+    print(reg.execute("maps_weather", city="厦门"))
