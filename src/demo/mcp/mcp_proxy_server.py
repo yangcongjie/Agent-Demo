@@ -9,8 +9,7 @@ MCP 2.0 客户端代理服务
    https://bailian.console.aliyun.com/?tab=mcp#/mcp-market/detail/amap-maps
 3. 确保 DASHSCOPE_API_KEY 有百炼平台访问权限
 """
-
-import asyncio
+import sys
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -32,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 # 阿里云百炼 MCP 服务地址（高德地图）
 MCP_SERVER_URL = "https://dashscope.aliyuncs.com/api/v1/mcps/amap-maps/mcp"
-DASHSCOPE_API_KEY = "sk-d00a574456bb44c1977072fdc0244ef9"
+DASHSCOPE_API_KEY = sys.argv[1]
 
 # 全局 MCP 客户端
 _client: Optional[Client] = None
