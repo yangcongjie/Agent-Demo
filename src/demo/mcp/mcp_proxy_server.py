@@ -2,12 +2,6 @@
 MCP 2.0 客户端代理服务
 - 通过 fastmcp 连接阿里云百炼 MCP 服务（高德地图等）
 - 对外暴露 HTTP API，供 AgentRuntime 调用
-
-前置条件：
-1. 安装 fastmcp: pip install fastmcp
-2. 在阿里云百炼 MCP 广场开通高德地图服务：
-   https://bailian.console.aliyun.com/?tab=mcp#/mcp-market/detail/amap-maps
-3. 确保 DASHSCOPE_API_KEY 有百炼平台访问权限
 """
 import sys
 import logging

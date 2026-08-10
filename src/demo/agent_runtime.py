@@ -54,14 +54,15 @@ class AgentRuntime:
         for loop_idx in range(config.AGENT_MAX_LOOP):
             logger.info(f"3-1.第 {loop_idx + 1} 轮循环")
 
-            # 2.1 调用 LLM
+            # 2.1 调用 LLM（按用户输入筛选工具，减少 token 消耗）
+            filtered_tools = self.tool_registry.get_schemas_by_query(user_input)
             logger.info(
-                f"3-2.调用LLM\n上下文: {self.context_manager.get_messages()}\n工具: {self.tool_registry.get_all_schemas()}"
+                f"3-2.调用LLM\n上下文: {self.context_manager.get_messages()}\n工具: {len(filtered_tools)}个"
             )
             try:
                 response = self.llm_client.chat(
                     messages=self.context_manager.get_messages(),
-                    tools=self.tool_registry.get_all_schemas(),
+                    tools=filtered_tools,
                 )
             except Exception as e:
                 logger.error(f"LLM 调用失败: {e}")

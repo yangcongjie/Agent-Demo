@@ -22,6 +22,7 @@ class Tool(BaseModel):
     description: str = ""  # 工具描述
     parameters: dict = {}  # JSON Schema 格式参数定义
     executor_type: str = ""  # 执行类型local 或 mcp
+    category: str = "general"  # 工具分类：general / weather / navigation / search / distance / map
     func: Callable[..., Any] = None  # 工具实现函数
 
     def execute(self, **kwargs) -> Any:

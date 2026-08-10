@@ -1,8 +1,9 @@
 """
 工具注册表
 - ToolRegistry: 工具注册表，支持动态注册、查询、导出Schema给LLM
-- 内置工具: calculator / search / weather / todo
+- 内置工具: calculator / search / todo
 - create_default_registry(): 一键创建包含全部内置工具的注册表
+- get_schemas_by_query(): 基于关键词路由，按用户意图筛选工具，减少 token 消耗
 """
 
 import ast
@@ -13,7 +14,16 @@ from demo.tools.tool import Tool
 import demo.mcp.mcp_client as mcp_client
 import logging
 
-logger = logging.getLogger(__name__)  # "demo.agent_runtime"，继承 "demo" logger 配置
+logger = logging.getLogger(__name__)  # "demo.tools.tool_registry"
+
+# ========== 工具分类关键词路由 ==========
+CATEGORY_KEYWORDS: dict[str, list[str]] = {
+    "weather": ["天气", "气温", "温度", "下雨", "晴", "阴", "多云", "降水", "风力", "风"],
+    "navigation": ["导航", "路线", "怎么走", "怎么去", "驾车", "步行", "骑行", "坐地铁", "坐公交", "打车", "出租车", "公交", "地铁", "开车", "路线规划"],
+    "search": ["搜索", "查找", "找", "附近", "哪里有", "位置", "地址", "地点", "坐标", "在哪", "多少号", "电话", "poi"],
+    "distance": ["距离", "多远", "多少公里", "多少米"],
+    "map": ["地图", "行程", "路书"],
+}
 
 # ========== 安全的数学表达式求值 ==========
 _SAFE_OPERATORS = {
@@ -175,6 +185,45 @@ class ToolRegistry:
         """导出所有工具的 schema（用于注入 LLM prompt / function calling）"""
         return [tool.to_schema() for tool in self._tools.values()]
 
+    def get_schemas_by_query(self, user_input: str) -> list[dict]:
+        """
+        基于关键词路由筛选工具 schema，减少每次 LLM 调用的 token 消耗。
+
+        策略：
+        1. general 类工具（calculator / search / todo）始终包含
+        2. 根据用户输入匹配关键词，只加入对应类别的工具
+        3. 未匹配任何关键词 → 返回全部工具（兜底，保证不丢能力）
+
+        :param user_input: 用户原始输入
+        :return: 筛选后的工具 schema 列表
+        """
+        if not user_input:
+            return self.get_all_schemas()
+
+        # 匹配用户输入中的关键词，收集命中的类别
+        matched_categories: set[str] = set()
+        for category, keywords in CATEGORY_KEYWORDS.items():
+            if any(kw in user_input for kw in keywords):
+                matched_categories.add(category)
+
+        # 兜底返回全部
+        if not matched_categories:
+            logger.info(f"工具路由: 未匹配到关键词，发送全部 {len(self._tools)} 个工具")
+            return self.get_all_schemas()
+
+        # 筛选：general 类始终包含 + 匹配到的类别
+        filtered_schemas = [
+            tool.to_schema()
+            for tool in self._tools.values()
+            if tool.category == "general" or tool.category in matched_categories
+        ]
+
+        logger.info(
+            f"工具路由: 用户输入匹配到类别 {matched_categories}，"
+            f"筛选后发送 {len(filtered_schemas)}/{len(self._tools)} 个工具"
+        )
+        return filtered_schemas
+
     def list_names(self) -> list[str]:
         """列出所有工具名"""
         return list(self._tools.keys())
@@ -207,6 +256,7 @@ def create_default_registry() -> ToolRegistry:
                 "required": ["expression"],
             },
             executor_type="local",
+            category="general",
             func=_tool_calculator,
         )
     )
@@ -227,6 +277,7 @@ def create_default_registry() -> ToolRegistry:
                 "required": ["query"],
             },
             executor_type="local",
+            category="general",
             func=_tool_search,
         )
     )
@@ -276,6 +327,7 @@ def create_default_registry() -> ToolRegistry:
                 "required": ["action"],
             },
             executor_type="local",
+            category="general",
             func=_tool_todo,
         )
     )
@@ -283,6 +335,22 @@ def create_default_registry() -> ToolRegistry:
     # mcp接口接入
     registry_mcp_tools(registry)
     return registry
+
+
+def _guess_mcp_category(tool_name: str) -> str:
+    """根据 MCP 工具名自动推断分类"""
+    name_lower = tool_name.lower()
+    if "weather" in name_lower:
+        return "weather"
+    if "direction" in name_lower or "navi" in name_lower or "taxi" in name_lower:
+        return "navigation"
+    if "search" in name_lower or "geo" in name_lower or "regeocode" in name_lower:
+        return "search"
+    if "distance" in name_lower:
+        return "distance"
+    if "map" in name_lower:
+        return "map"
+    return "general"
 
 
 def registry_mcp_tools(registry: ToolRegistry) -> ToolRegistry:
@@ -303,7 +371,9 @@ def registry_mcp_tools(registry: ToolRegistry) -> ToolRegistry:
         if not tool_name:
             continue
 
-        logging.info(f"正在注册MCP工具：{tool_name}")
+        # 自动推断分类
+        category = _guess_mcp_category(tool_name)
+        logging.info(f"正在注册MCP工具：{tool_name} (分类: {category})")
 
         registry.register(
             Tool(
@@ -311,6 +381,7 @@ def registry_mcp_tools(registry: ToolRegistry) -> ToolRegistry:
                 description=tool_desc,
                 parameters=tool_params,
                 executor_type="mcp",
+                category=category,
             )
         )
 
