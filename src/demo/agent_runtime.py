@@ -14,7 +14,7 @@ from demo.llm.llm_client import LLMClient, LLMResponse
 from demo.llm.llm_output_parser import LLMOutputParser, ParsedOutput
 from demo.tools.tool_registry import ToolRegistry
 
-logger = logging.getLogger(__name__)  # "demo.agent_runtime"，继承 "demo" logger 配置
+logger = logging.getLogger(__name__)
 
 # 默认系统提示词
 _DEFAULT_SYSTEM_PROMPT = """你是杨聪杰的智能助手，可以通过调用工具来帮助用户完成任务。
